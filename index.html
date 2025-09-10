@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Truck Hill Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f9ff; /* sky blue */
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .game-container {
+            width: 100%;
+            max-width: 90vw;
+            height: 90vh;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .game-header {
+            font-family: 'Press Start 2P', cursive;
+        }
+        canvas {
+            display: block;
+            touch-action: none; /* prevent scrolling on mobile */
+        }
+        .info-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            display: none; /* Hidden by default */
+            flex-direction: column; /* Stack items vertically */
+            align-items: center; /* Center items horizontally */
+            z-index: 10;
+            width: 90%;
+            max-width: 400px;
+        }
+        .high-score-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 1rem;
+            text-align: left;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+        .high-score-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            font-family: 'Press Start 2P', cursive;
+            width: 100%;
+        }
+        .high-score-list .rank {
+            width: 3rem;
+            text-align: right;
+            padding-right: 1rem;
+        }
+        .high-score-list .name {
+            flex-grow: 1;
+        }
+        .high-score-list .score {
+             width: 5rem;
+             text-align: right;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+
+    <div class="game-container">
+        <!-- Header -->
+        <div class="p-4 bg-gray-100 border-b-4 border-gray-200">
+            <h1 class="game-header text-xl md:text-2xl text-center text-gray-800">3D Truck Challenge</h1>
+            <div class="flex justify-between items-center mt-3">
+                <div class="flex-1">
+                    <p class="text-sm md:text-base text-gray-600">Level: <span id="level" class="font-bold text-lg">1</span></p>
+                    <p class="text-sm md:text-base text-gray-600">Score: <span id="score" class="font-bold text-lg">0</span></p>
+                </div>
+                 <div class="flex-1 text-right">
+                    <p class="text-sm md:text-base text-gray-600">High Score: <span id="highScore" class="font-bold text-lg">0</span></p>
+                </div>
+                <div id="inGameButtons" class="flex-1 text-right space-x-2 hidden">
+                     <button id="showHighScoresButton" class="px-3 py-1 bg-gray-500 text-white rounded shadow hover:bg-gray-600 transition-colors text-xs">Scores</button>
+                    <button id="pauseButton" class="px-3 py-1 bg-yellow-500 text-white rounded shadow hover:bg-yellow-600 transition-colors text-xs">Pause</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Canvas -->
+        <div class="relative flex-grow" id="canvas-container">
+            <!-- Canvas will be inserted here by three.js -->
+            <div id="startScreen" class="info-overlay">
+                <p class="text-lg mb-4">Get Ready!</p>
+                <button id="startButton" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors text-sm">Start Game</button>
+                 <div id="startScreenHighScores"></div>
+            </div>
+            <div id="gameOverScreen" class="info-overlay">
+                <p class="text-lg mb-4">Game Over!</p>
+                <button id="restartButton" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700 transition-colors text-sm">Restart</button>
+                <div id="gameOverScreenHighScores"></div>
+            </div>
+            <div id="highScoreEntryScreen" class="info-overlay">
+                <p class="text-lg mb-2">New High Score!</p>
+                <p class="text-sm mb-4">Enter Your Initials:</p>
+                <input type="text" id="initialsInput" maxlength="3" class="w-24 text-center p-2 rounded bg-gray-800 text-white uppercase text-xl font-bold tracking-widest" />
+                <button id="submitScoreButton" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition-colors text-sm">Submit</button>
+            </div>
+            <div id="levelCompleteScreen" class="info-overlay">
+                <p id="levelCompleteText" class="text-xl mb-4 text-yellow-300">LEVEL COMPLETE!</p>
+                <div class="flex space-x-4">
+                    <button id="restartCurrentLevelButton" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors text-sm">Restart Level</button>
+                    <button id="nextLevelButton" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors text-sm">Next Level</button>
+                </div>
+            </div>
+            <div id="gameWonScreen" class="info-overlay">
+                <p class="text-2xl mb-4 text-green-400">YOU WIN!</p>
+                <p class="text-sm mb-4">You beat all 10 levels!</p>
+                <p class="text-lg mb-4">Final Score: <span id="finalScore"></span></p>
+                <button id="playAgainButtonWin" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors text-sm">Play Again</button>
+            </div>
+            <div id="pauseScreen" class="info-overlay">
+                <p class="text-xl mb-4">Paused</p>
+                 <div class="flex space-x-4">
+                    <button id="resumeButton" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition-colors text-sm">Resume</button>
+                    <button id="quitButton" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700 transition-colors text-sm">Quit</button>
+                </div>
+            </div>
+            <div id="inGameHighScoresScreen" class="info-overlay">
+                 <div id="inGameHighScoresList"></div>
+                 <button id="backToGameButton" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors text-sm">Back to Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // SECTION: DOM Elements
+        // Grabs all the necessary HTML elements to be manipulated by the script.
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('highScore');
+        const levelEl = document.getElementById('level');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const highScoreEntryScreen = document.getElementById('highScoreEntryScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const submitScoreButton = document.getElementById('submitScoreButton');
+        const initialsInput = document.getElementById('initialsInput');
+        const startScreenHighScores = document.getElementById('startScreenHighScores');
+        const gameOverScreenHighScores = document.getElementById('gameOverScreenHighScores');
+        const canvasContainer = document.getElementById('canvas-container');
+        const levelCompleteScreen = document.getElementById('levelCompleteScreen');
+        const nextLevelButton = document.getElementById('nextLevelButton');
+        const restartCurrentLevelButton = document.getElementById('restartCurrentLevelButton');
+        const levelCompleteText = document.getElementById('levelCompleteText');
+        const gameWonScreen = document.getElementById('gameWonScreen');
+        const playAgainButtonWin = document.getElementById('playAgainButtonWin');
+        const finalScoreEl = document.getElementById('finalScore');
+        const inGameButtons = document.getElementById('inGameButtons');
+        const pauseButton = document.getElementById('pauseButton');
+        const showHighScoresButton = document.getElementById('showHighScoresButton');
+        const pauseScreen = document.getElementById('pauseScreen');
+        const resumeButton = document.getElementById('resumeButton');
+        const quitButton = document.getElementById('quitButton');
+        const inGameHighScoresScreen = document.getElementById('inGameHighScoresScreen');
+        const inGameHighScoresList = document.getElementById('inGameHighScoresList');
+        const backToGameButton = document.getElementById('backToGameButton');
+
+
+        // SECTION: Game State
+        // These variables track the overall state of the game.
+        let level = 1;
+        const MAX_LEVELS = 10;
+        let score = 0; // Score for the current level.
+        let totalScore = 0; // Cumulative score across all levels.
+        let highScores = []; // Array to hold the high score list.
+        let keys = {}; // Object to track which keys are currently pressed.
+        let gameOver = true; // Flag to check if the game is active or in a menu state.
+        let isPaused = false; // Flag to check if the game is paused.
+        let gameIsWon = false; // Flag to check if the player has beaten all levels.
+        let cameraLookAtX = 0; // Used for smooth camera movement.
+        let distanceTraveled = 0; // Tracks player progress through a level.
+        let isLevelCompleting = false; // Prevents level complete logic from running multiple times.
+
+        const HIGH_SCORES_KEY = 'truckHighScoresList3D';
+
+        // SECTION: Level Configuration
+        // An array of objects, where each object defines the parameters for a level.
+        const levelConfig = [
+            { speed: 0.20, length: 25, turn: 5.0, obsRate: 0.035 }, // Level 1
+            { speed: 0.21, length: 30, turn: 5.5, obsRate: 0.040 }, // Level 2
+            { speed: 0.22, length: 35, turn: 5.5, obsRate: 0.045 }, // Level 3
+            { speed: 0.24, length: 40, turn: 6.0, obsRate: 0.050 }, // Level 4
+            { speed: 0.26, length: 45, turn: 6.5, obsRate: 0.055 }, // Level 5
+            { speed: 0.28, length: 50, turn: 7.0, obsRate: 0.060 }, // Level 6
+            { speed: 0.30, length: 55, turn: 7.5, obsRate: 0.065 }, // Level 7
+            { speed: 0.32, length: 60, turn: 8.0, obsRate: 0.070 }, // Level 8
+            { speed: 0.35, length: 65, turn: 8.5, obsRate: 0.075 }, // Level 9
+            { speed: 0.38, length: 70, turn: 9.0, obsRate: 0.080 }, // Level 10
+        ];
+
+        // SECTION: High Score Logic
+        // Manages loading, saving, and displaying high scores using localStorage.
+
+        /**
+         * Loads high scores from localStorage or creates a default list if none exists.
+         */
+        function loadHighScores() {
+            const scores = localStorage.getItem(HIGH_SCORES_KEY);
+            if (scores) {
+                highScores = JSON.parse(scores);
+            } else {
+                highScores = [
+                    { name: 'RUN', score: 42 }, { name: 'DRV', score: 35 }, { name: 'SPD', score: 30 },
+                    { name: 'TRK', score: 25 }, { name: 'RCR', score: 20 }, { name: 'GAS', score: 15 },
+                    { name: 'ROD', score: 10 }, { name: 'SKD', score: 8 }, { name: 'RMP', score: 5 },
+                    { name: 'TYR', score: 2 }
+                ];
+                saveHighScores();
+            }
+        }
+        
+        /**
+         * Saves the current high scores array to localStorage.
+         */
+        function saveHighScores() { localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores)); }
+        
+        /**
+         * Updates the high score display in the game header.
+         */
+        function updateTopScoreDisplay() {
+            const topScore = highScores.length > 0 ? highScores[0].score : 0;
+            highScoreEl.textContent = topScore;
+        }
+
+        /**
+         * Renders the high score list into a specified HTML container.
+         * @param {HTMLElement} container - The element to display the list in.
+         */
+        function displayHighScores(container) {
+            container.innerHTML = '';
+            const title = document.createElement('h2');
+            title.textContent = 'Top 10 Scores';
+            title.className = 'text-lg mt-4 mb-2';
+            container.appendChild(title);
+            const list = document.createElement('ol');
+            list.className = 'high-score-list';
+            highScores.forEach((score, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="rank">${index + 1}.</span><span class="name">${score.name}</span><span class="score">${score.score}</span>`;
+                list.appendChild(li);
+            });
+            container.appendChild(list);
+        }
+
+        /**
+         * Checks if a new score qualifies for the high score list.
+         * @param {number} newScore - The score to check.
+         * @returns {boolean} - True if it's a high score, false otherwise.
+         */
+        function isHighScore(newScore) {
+            if (newScore <= 0) return false;
+            if (highScores.length < 10) return true;
+            return newScore > highScores[highScores.length - 1].score;
+        }
+
+        /**
+         * Adds a new score to the list, sorts, trims to 10, and saves.
+         * @param {string} name - The player's initials.
+         * @param {number} newScore - The new score to add.
+         */
+        function addNewHighScore(name, newScore) {
+            highScores.push({ name, score: newScore });
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, 10);
+            saveHighScores();
+            updateTopScoreDisplay();
+        }
+
+        // SECTION: THREE.js Setup
+        // Initializes the 3D scene, camera, renderer, and lighting.
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 150);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        canvasContainer.appendChild(renderer.domElement);
+        
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(-10, 15, 5);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 20; dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.camera.left = -20; dirLight.shadow.camera.right = 20;
+        dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 60;
+        dirLight.shadow.mapSize.width = 1024; dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        // SECTION: Game Objects and Object Pooling
+        // Manages the creation, reuse, and recycling of all game objects for performance.
+        let truck;
+        const pathData = [];
+        
+        const objectPools = {
+            collectible: [], tree: [], bush: [], rock: [], banner: [], path: [],
+        };
+        const activeObjects = {
+            collectible: [], obstacle: [], banner: [], path: [],
+        };
+
+        /**
+         * Creates a new 3D object of a specific type. Called only when a pool is empty.
+         * @param {string} type - The type of object to create (e.g., 'tree', 'collectible').
+         * @returns {THREE.Object3D} - The newly created Three.js object.
+         */
+        function createObject(type) {
+            let obj;
+            switch (type) {
+                case 'collectible':
+                    const lightningShape = new THREE.Shape();
+                    lightningShape.moveTo(0.2, 0.8); lightningShape.lineTo(-0.2, 0.2); lightningShape.lineTo(0.1, 0.2);
+                    lightningShape.lineTo(-0.3, -0.4); lightningShape.lineTo(0.2, 0); lightningShape.lineTo(-0.1, 0);
+                    lightningShape.lineTo(0.2, 0.8);
+                    const geometry = new THREE.ExtrudeGeometry(lightningShape, { steps: 1, depth: 0.1, bevelEnabled: false });
+                    const material = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0xffff00, emissiveIntensity: 0.3 });
+                    obj = new THREE.Mesh(geometry, material);
+                    geometry.center();
+                    obj.scale.set(0.8, 0.8, 0.8);
+                    obj.castShadow = true;
+                    obj.userData.type = 'collectible';
+                    break;
+                case 'tree':
+                    const treeGroup = new THREE.Group();
+                    const trunkHeight = Math.random() * 2 + 2;
+                    const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, trunkHeight, 8);
+                    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5C3D2E });
+                    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                    trunk.position.y = trunkHeight / 2;
+                    treeGroup.add(trunk);
+                    const leavesHeight = Math.random() * 2 + 2.5;
+                    const leavesGeo = new THREE.ConeGeometry(1.5, leavesHeight, 8);
+                    const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+                    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+                    leaves.position.y = trunkHeight + (leavesHeight / 2) - 0.5;
+                    treeGroup.add(leaves);
+                    obj = treeGroup;
+                    obj.userData.type = 'obstacle';
+                    break;
+                case 'bush':
+                    const bSize = Math.random() * 0.8 + 0.6;
+                    const bGeo = new THREE.IcosahedronGeometry(bSize, 1);
+                    const bMat = new THREE.MeshLambertMaterial({ color: 0x006400 });
+                    obj = new THREE.Mesh(bGeo, bMat);
+                    obj.userData.yOffset = bSize / 2;
+                    obj.userData.type = 'obstacle';
+                    break;
+                case 'rock':
+                    const rSize = Math.random() * 0.5 + 0.8;
+                    const rGeo = new THREE.DodecahedronGeometry(rSize, 0);
+                    const rMat = new THREE.MeshLambertMaterial({ color: 0x4b5563 });
+                    obj = new THREE.Mesh(rGeo, rMat);
+                    obj.userData.yOffset = rSize / 2;
+                    obj.userData.type = 'obstacle';
+                    break;
+                 case 'path':
+                    const pathGeo = new THREE.PlaneGeometry(8, PATH_SEGMENT_LENGTH);
+                    const pathMat = new THREE.MeshLambertMaterial({ color: 0x966939 });
+                    obj = new THREE.Mesh(pathGeo, pathMat);
+                    obj.rotation.x = -Math.PI / 2;
+                    obj.receiveShadow = true;
+                    obj.userData.type = 'path';
+                    break;
+                case 'banner':
+                     obj = createBannerObject();
+                     obj.userData.type = 'banner';
+                     break;
+            }
+            if(obj) {
+                obj.traverse(child => { if (child.isMesh) child.castShadow = true; });
+                obj.userData.boundingBox = new THREE.Box3();
+            }
+            return obj;
+        }
+
+        /**
+         * Retrieves an object from the pool or creates a new one if the pool is empty.
+         * @param {string} type - The type of object to retrieve.
+         * @returns {THREE.Object3D} - The active object.
+         */
+        function getObjectFromPool(type) {
+            let obj;
+            if (objectPools[type].length > 0) {
+                obj = objectPools[type].pop();
+            } else {
+                obj = createObject(type);
+            }
+            if (obj) {
+                obj.visible = true;
+                scene.add(obj);
+                if (type === 'collectible') activeObjects.collectible.push(obj);
+                else if (type === 'path') activeObjects.path.push(obj);
+                else if (type === 'banner') activeObjects.banner.push(obj);
+                else activeObjects.obstacle.push(obj);
+            }
+            return obj;
+        }
+        
+        /**
+         * Returns an inactive object to its corresponding pool for later reuse.
+         * @param {THREE.Object3D} obj - The object to recycle.
+         */
+        function returnObjectToPool(obj) {
+            obj.visible = false;
+            scene.remove(obj);
+            let pool, activeArr;
+            const type = obj.userData.poolType || obj.userData.type;
+            
+            if (type === 'collectible') { pool = objectPools.collectible; activeArr = activeObjects.collectible; }
+            else if (type === 'path') { pool = objectPools.path; activeArr = activeObjects.path; }
+            else if (type === 'banner') { pool = objectPools.banner; activeArr = activeObjects.banner; }
+            else {
+                 activeArr = activeObjects.obstacle;
+                 if(type.includes('tree')) pool = objectPools.tree;
+                 else if(type.includes('bush')) pool = objectPools.bush;
+                 else if(type.includes('rock')) pool = objectPools.rock;
+            }
+
+            if(pool && activeArr) {
+                const index = activeArr.indexOf(obj);
+                if (index > -1) activeArr.splice(index, 1);
+                pool.push(obj);
+            }
+        }
+
+        /**
+         * Builds the player's truck model from several geometric parts.
+         * @returns {THREE.Group} - The complete truck object.
+         */
+        function createTruck() {
+            const truckGroup = new THREE.Group();
+            const mainColor = 0x1d4ed8, glassColor = 0x93c5fd, wheelColor = 0x27272a, rimColor = 0xa1a1aa;
+            const bodyMat = new THREE.MeshLambertMaterial({ color: mainColor });
+            const glassMat = new THREE.MeshLambertMaterial({ color: glassColor, transparent: true, opacity: 0.6 });
+            const bodyGeo = new THREE.BoxGeometry(1.8, 0.8, 4), body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.4;
+            truckGroup.add(body);
+            const cabinGeo = new THREE.BoxGeometry(1.6, 1, 2), cabin = new THREE.Mesh(cabinGeo, bodyMat);
+            cabin.position.set(0, 1.3, -0.5);
+            truckGroup.add(cabin);
+            const windshieldGeo = new THREE.PlaneGeometry(1.5, 0.9), windshield = new THREE.Mesh(windshieldGeo, glassMat);
+            windshield.position.set(0, 1.3, -1.5); windshield.rotation.x = -0.25;
+            truckGroup.add(windshield);
+            const windowGeo = new THREE.PlaneGeometry(0.8, 0.6);
+            const windowL = new THREE.Mesh(windowGeo, glassMat);
+            windowL.position.set(0.81, 1.3, -0.6); windowL.rotation.y = Math.PI / 2;
+            truckGroup.add(windowL);
+            const windowR = new THREE.Mesh(windowGeo, glassMat);
+            windowR.position.set(-0.81, 1.3, -0.6); windowR.rotation.y = -Math.PI / 2;
+            truckGroup.add(windowR);
+            function createWheel() {
+                const wheelGroup = new THREE.Group();
+                const tireGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 24);
+                const tireMat = new THREE.MeshLambertMaterial({ color: wheelColor });
+                const tire = new THREE.Mesh(tireGeo, tireMat);
+                const rimGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.45, 16);
+                const rimMat = new THREE.MeshLambertMaterial({ color: rimColor });
+                const rim = new THREE.Mesh(rimGeo, rimMat);
+                wheelGroup.add(tire, rim);
+                wheelGroup.rotation.z = Math.PI / 2;
+                return wheelGroup;
+            }
+            const wheelPositions = [ {x: -1, z: -1.3}, {x: 1, z: -1.3}, {x: -1, z: 1.3}, {x: 1, z: 1.3} ];
+            wheelPositions.forEach(pos => {
+                const wheel = createWheel();
+                wheel.position.set(pos.x, 0.4, pos.z);
+                truckGroup.add(wheel);
+            });
+            truckGroup.traverse(child => { if(child.isMesh) child.castShadow = true; });
+            truckGroup.userData = { speed: 0.2, dx: 0, boundingBox: new THREE.Box3() };
+            return truckGroup;
+        }
+        
+        // SECTION: Level Generation & Environment
+        // Creates the ground, and procedurally generates the winding path for each level.
+        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x6B4F35 });
+        const groundGeometry = new THREE.PlaneGeometry(35, 200); // Narrower ground
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        
+        const PATH_SEGMENT_LENGTH = 10;
+        let LEVEL_LENGTH_IN_SEGMENTS = 25;
+        let LEVEL_DISTANCE = (LEVEL_LENGTH_IN_SEGMENTS - 15) * PATH_SEGMENT_LENGTH;
+        let finishLine = null;
+
+        /**
+         * Generates the winding path data based on the current level's configuration.
+         */
+        function generateLevelPath() {
+            const config = levelConfig[level - 1];
+            pathData.length = 0;
+            let currentX = 0;
+            for (let i = 0; i < config.length + 20; i++) {
+                const turnFactor = Math.sin(i / 10) * 0.5 + (Math.random() - 0.5) * 0.5;
+                const turn = turnFactor * config.turn;
+                currentX += turn;
+                // Keep the path more centered on the narrower ground
+                if (currentX > 10) currentX = 10;
+                if (currentX < -10) currentX = -10;
+                pathData.push({ x: currentX, z: -i * PATH_SEGMENT_LENGTH });
+            }
+        }
+        
+        /**
+         * Interpolates the path's center X position at any given Z coordinate.
+         * @param {number} z - The Z coordinate to check.
+         * @returns {number} - The X coordinate of the path's center.
+         */
+        function getPathXAtZ(z) {
+            const index = Math.max(0, Math.floor(-z / PATH_SEGMENT_LENGTH));
+            const nextIndex = index + 1;
+            if (nextIndex >= pathData.length) return pathData[pathData.length - 1].x;
+            
+            const segmentStart = pathData[index];
+            const segmentEnd = pathData[nextIndex];
+            const segmentProgress = (-z % PATH_SEGMENT_LENGTH) / PATH_SEGMENT_LENGTH;
+            
+            return segmentStart.x + (segmentEnd.x - segmentStart.x) * segmentProgress;
+        }
+
+        // --- Banners (Start/Finish) ---
+        /**
+         * Creates the 3D model for a banner (posts and plane).
+         * @returns {THREE.Group} - The banner object.
+         */
+        function createBannerObject() {
+            const bannerGroup = new THREE.Group();
+            const postGeo = new THREE.CylinderGeometry(0.2, 0.2, 4, 8);
+            const postMat = new THREE.MeshLambertMaterial({ color: 0x5C3D2E });
+            
+            const postL = new THREE.Mesh(postGeo, postMat);
+            postL.position.set(-8, 2, 0);
+            bannerGroup.add(postL);
+
+            const postR = new THREE.Mesh(postGeo, postMat);
+            postR.position.set(8, 2, 0);
+            bannerGroup.add(postR);
+            
+            const bannerGeo = new THREE.PlaneGeometry(16, 2);
+            const bannerMat = new THREE.MeshLambertMaterial({ color: 0x4B5563, transparent: true });
+            const banner = new THREE.Mesh(bannerGeo, bannerMat);
+            banner.position.y = 3;
+            bannerGroup.add(banner);
+            bannerGroup.userData.bannerMesh = banner;
+
+            return bannerGroup;
+        }
+
+        /**
+         * "Paints" text onto a banner's material using a 2D canvas texture.
+         * @param {THREE.Object3D} bannerObj - The banner group.
+         * @param {string} text - The text to display.
+         */
+        function updateBannerText(bannerObj, text) {
+             const canvas = createTextCanvas(text, 512, 128);
+             const texture = new THREE.CanvasTexture(canvas);
+             const banner = bannerObj.userData.bannerMesh;
+             banner.material.map = texture;
+             banner.material.needsUpdate = true;
+        }
+        
+        /**
+         * Helper function to create a canvas element with specified text.
+         * @returns {HTMLCanvasElement}
+         */
+        function createTextCanvas(text, width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const context = canvas.getContext('2d');
+            context.fillStyle = '#4B5563';
+            context.fillRect(0, 0, width, height);
+            context.font = `bold ${height*0.4}px "Press Start 2P"`;
+            context.fillStyle = 'white';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, width / 2, height / 2);
+            return canvas;
+        }
+
+
+        // SECTION: Core Game Logic
+        // Handles spawning objects, collision, and game progression.
+
+        /**
+         * Spawns a collectible from the pool at a specific Z position along the path.
+         */
+        function spawnCollectible(zPos) {
+            const collectible = getObjectFromPool('collectible');
+            
+            // Spawn collectibles randomly in a wide central corridor (-10 to 10).
+            const randomX = (Math.random() - 0.5) * 20;
+            collectible.position.set(randomX, 0.7, zPos);
+        }
+
+        /**
+         * Spawns a random obstacle (tree, bush, or rock) near the path.
+         */
+        function spawnObstacle(zPos) {
+            const type = ['tree', 'bush', 'rock'][Math.floor(Math.random() * 3)];
+            const obstacle = getObjectFromPool(type);
+            obstacle.userData.poolType = type;
+            
+            const yPos = obstacle.userData.yOffset || 0;
+            
+            // Spawn obstacles randomly in a wide central corridor (-10 to 10) of the brown track area.
+            const randomX = (Math.random() - 0.5) * 20;
+            obstacle.position.set(randomX, yPos, zPos);
+        }
+        
+        /**
+         * Iterates through all active objects, moves them, checks for collisions, and recycles them.
+         */
+        function updateGameObjects() {
+            for (const type in activeObjects) {
+                for (let i = activeObjects[type].length - 1; i >= 0; i--) {
+                    const obj = activeObjects[type][i];
+                    obj.position.z += gameSpeed;
+
+                    if (obj.position.z > camera.position.z + 10) {
+                        returnObjectToPool(obj);
+                        continue;
+                    }
+
+                    obj.userData.boundingBox.setFromObject(obj);
+                    if (obj.userData.boundingBox.intersectsBox(truck.userData.boundingBox)) {
+                        handleCollision(obj);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Handles the logic for when the truck collides with an object.
+         */
+        function handleCollision(obj) {
+            const type = obj.userData.type;
+            if (type === 'collectible') {
+                score++;
+                totalScore++;
+                scoreEl.textContent = totalScore;
+                returnObjectToPool(obj);
+            } else if (type === 'obstacle') {
+                endGame();
+            } else if (type === 'banner' && obj === finishLine) {
+                levelComplete();
+            }
+        }
+
+        /**
+         * Randomly spawns new objects ahead of the player.
+         */
+        function spawnNewObjects() {
+             if (finishLine) return;
+
+             const zPos = truck.position.z - 150;
+             const config = levelConfig[level - 1];
+             if (Math.random() < 0.02) spawnCollectible(zPos);
+             if (Math.random() < config.obsRate) spawnObstacle(zPos);
+        }
+
+        /**
+         * Triggers the level completion sequence.
+         */
+        function levelComplete() {
+            if (isLevelCompleting) return;
+            isLevelCompleting = true;
+            gameOver = true;
+            totalScore += score;
+            scoreEl.textContent = totalScore;
+
+            if (level >= MAX_LEVELS) {
+                gameIsWon = true;
+                finalScoreEl.textContent = totalScore;
+                endGame(); 
+            } else {
+                levelCompleteText.textContent = `LEVEL ${level} COMPLETE!`;
+                levelCompleteScreen.style.display = 'flex';
+            }
+        }
+
+        /**
+         * The main animation loop, called every frame.
+         */
+        function animate() {
+            // Pause the animation loop if the game is over or paused.
+            if (gameOver || isPaused) return;
+            requestAnimationFrame(animate);
+
+            // --- Truck Movement and Physics ---
+            truck.position.x += truck.userData.dx;
+            const targetRotationZ = -truck.userData.dx * 0.8;
+            truck.rotation.z += (targetRotationZ - truck.rotation.z) * 0.1; // Smooth tilt
+
+            // --- Boundary checks ---
+            // Adjusted for narrower ground
+            if (truck.position.x < -16) truck.position.x = -16;
+            if (truck.position.x > 16) truck.position.x = 16;
+            truck.userData.boundingBox.setFromObject(truck);
+
+            // --- World Movement ---
+            ground.position.z = truck.position.z;
+            distanceTraveled += gameSpeed;
+            
+            // --- Core Logic Updates ---
+            updateGameObjects();
+            spawnNewObjects();
+
+            // --- Finish Line Logic ---
+            if (distanceTraveled >= LEVEL_DISTANCE && !finishLine) {
+                 finishLine = getObjectFromPool('banner');
+                 updateBannerText(finishLine, "FINISH");
+                 const zPos = truck.position.z - 150;
+                 finishLine.position.z = zPos;
+                 finishLine.position.x = getPathXAtZ(zPos);
+            }
+
+            if (finishLine && !isLevelCompleting && truck.position.z < finishLine.position.z) {
+                levelComplete();
+            }
+
+            // --- Camera Movement ---
+            cameraLookAtX += (truck.position.x - cameraLookAtX) * 0.1;
+            const lookAtTarget = new THREE.Vector3(cameraLookAtX, truck.position.y + 1.5, truck.position.z);
+            camera.position.x = cameraLookAtX;
+            camera.position.z = truck.position.z + 6;
+            camera.lookAt(lookAtTarget);
+
+            renderer.render(scene, camera);
+        }
+
+        // SECTION: Event Handling & User Input
+        // Manages all player input from keyboard and touch events.
+
+        function moveTruck() {
+            if (keys.ArrowRight || keys.d) truck.userData.dx = truck.userData.speed;
+            else if (keys.ArrowLeft || keys.a) truck.userData.dx = -truck.userData.speed;
+            else truck.userData.dx = 0;
+        }
+
+        function handleKeyDown(e) {
+            // Block keyboard input if any overlay screen is visible.
+            if (
+                highScoreEntryScreen.style.display !== 'none' || 
+                levelCompleteScreen.style.display !== 'none' ||
+                gameWonScreen.style.display !== 'none' ||
+                pauseScreen.style.display !== 'none' ||
+                inGameHighScoresScreen.style.display !== 'none'
+            ) {
+                return;
+            }
+            // Allow 'P' to toggle pause even during active gameplay
+            if (e.key.toLowerCase() === 'p' && !gameOver) {
+                togglePause();
+                return;
+            }
+            if (gameOver) {
+                startGame(true); // Any key on start/gameover starts a new game.
+            }
+            else { 
+                keys[e.key] = true; 
+                moveTruck(); 
+            }
+        }
+        function handleKeyUp(e) { keys[e.key] = false; moveTruck(); }
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        
+        let touchStartX = null;
+        renderer.domElement.addEventListener('touchstart', e => { if (!gameOver) touchStartX = e.touches[0].clientX; });
+        renderer.domElement.addEventListener('touchmove', e => {
+            if (gameOver || touchStartX === null) return;
+            const diffX = e.touches[0].clientX - touchStartX;
+            if (diffX > 5) truck.userData.dx = truck.userData.speed;
+            else if (diffX < -5) truck.userData.dx = -truck.userData.speed;
+        });
+        renderer.domElement.addEventListener('touchend', () => { touchStartX = null; truck.userData.dx = 0; });
+        
+        // SECTION: Game Flow Functions
+        // Controls the main flow of the game: starting, resetting, ending levels, and pausing.
+
+        /**
+         * Toggles the paused state of the game.
+         */
+        function togglePause() {
+            if (gameOver) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseScreen.style.display = 'flex';
+            } else {
+                pauseScreen.style.display = 'none';
+                inGameHighScoresScreen.style.display = 'none'; // Also hide scores screen if open
+                animate(); // Relaunch the animation loop
+            }
+        }
+
+        /**
+         * Pre-populates a new level with objects.
+         */
+        function populateLevel() {
+            const config = levelConfig[level - 1];
+             for(let i = 2; i < config.length; i++) {
+                const zPos = pathData[i].z;
+                if(Math.random() < 0.6) spawnCollectible(zPos);
+                if(Math.random() < 0.4) spawnObstacle(zPos);
+             }
+        }
+        
+        /**
+         * Resets the game state for a new level or a new game.
+         * @param {boolean} isNewGame - If true, resets everything including total score and level.
+         */
+        function resetGame(isNewGame) {
+            if (isNewGame) {
+                level = 1;
+                totalScore = 0;
+                gameIsWon = false;
+            }
+            const config = levelConfig[level - 1];
+            gameSpeed = config.speed;
+            LEVEL_LENGTH_IN_SEGMENTS = config.length;
+            LEVEL_DISTANCE = (LEVEL_LENGTH_IN_SEGMENTS - 15) * PATH_SEGMENT_LENGTH;
+            
+            score = 0;
+            distanceTraveled = 0;
+            isLevelCompleting = false;
+            isPaused = false; // Ensure game is not paused on reset
+            scoreEl.textContent = totalScore;
+            levelEl.textContent = level;
+            cameraLookAtX = 0;
+            
+            // Return all active objects to their pools
+            for (const type in activeObjects) {
+                for (let i = activeObjects[type].length - 1; i >= 0; i--) {
+                    returnObjectToPool(activeObjects[type][i]);
+                }
+            }
+            finishLine = null;
+
+            generateLevelPath();
+            
+            const startBanner = getObjectFromPool('banner');
+            updateBannerText(startBanner, "START");
+            const startZ = -10;
+            startBanner.position.z = startZ;
+            startBanner.position.x = getPathXAtZ(startZ);
+            activeObjects.banner.push(startBanner); // Manually add start banner to active list
+
+            populateLevel();
+            
+            if (truck) scene.remove(truck);
+            truck = createTruck();
+            scene.add(truck);
+            truck.position.z = 0;
+            
+            camera.position.set(0, 3.5, 6);
+            const lookAtTarget = new THREE.Vector3(truck.position.x, truck.position.y + 1.5, truck.position.z);
+            camera.lookAt(lookAtTarget);
+        }
+
+        /**
+         * Starts the game loop and hides menus.
+         */
+        function startGame(isNewGame = false) {
+            gameOver = false;
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            highScoreEntryScreen.style.display = 'none';
+            levelCompleteScreen.style.display = 'none';
+            gameWonScreen.style.display = 'none';
+            pauseScreen.style.display = 'none';
+            inGameHighScoresScreen.style.display = 'none';
+            inGameButtons.classList.remove('hidden'); // Show pause/scores buttons
+            resetGame(isNewGame);
+            animate();
+        }
+
+        /**
+         * Ends the game, stops the loop, and shows the appropriate end screen.
+         */
+        function endGame() {
+            gameOver = true;
+            inGameButtons.classList.add('hidden'); // Hide pause/scores buttons
+            if (isHighScore(totalScore) && !gameIsWon) { // Only show for game over, not win
+                highScoreEntryScreen.style.display = 'flex';
+                initialsInput.value = '';
+                initialsInput.focus();
+            } else {
+                 if (gameIsWon) {
+                    gameWonScreen.style.display = 'flex';
+                } else {
+                    displayHighScores(gameOverScreenHighScores);
+                    gameOverScreen.style.display = 'flex';
+                }
+            }
+        }
+        
+        /**
+         * Handles resizing of the browser window.
+         */
+        function resizeCanvas() {
+            const container = canvasContainer;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        // SECTION: Initial Setup
+        // Wires up all the event listeners and initializes the game for the first time.
+        window.addEventListener('resize', resizeCanvas);
+        startButton.addEventListener('click', () => startGame(true));
+        restartButton.addEventListener('click', () => startGame(true));
+        playAgainButtonWin.addEventListener('click', () => startGame(true));
+        pauseButton.addEventListener('click', togglePause);
+        resumeButton.addEventListener('click', togglePause);
+
+        quitButton.addEventListener('click', () => {
+            togglePause(); // Unpause to exit loop
+            endGame();
+        });
+
+        showHighScoresButton.addEventListener('click', () => {
+            if (gameOver || isPaused) return;
+            isPaused = true;
+            displayHighScores(inGameHighScoresList);
+            inGameHighScoresScreen.style.display = 'flex';
+        });
+
+        backToGameButton.addEventListener('click', () => {
+            togglePause(); // Simply unpausing will hide the screen and resume
+        });
+
+        nextLevelButton.addEventListener('click', () => {
+            level++;
+            startGame(false);
+        });
+
+        restartCurrentLevelButton.addEventListener('click', () => {
+            totalScore -= score; // Deduct score from the failed attempt
+            startGame(false);
+        });
+
+        initialsInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitScoreButton.click(); });
+        submitScoreButton.addEventListener('click', () => {
+            let initials = initialsInput.value.toUpperCase().padEnd(3, ' ');
+            if (initials.trim() === '') initials = 'AAA';
+            addNewHighScore(initials, totalScore);
+            highScoreEntryScreen.style.display = 'none';
+
+            if (gameIsWon) {
+                // If they won AND got a high score, show the win screen after.
+                gameWonScreen.style.display = 'flex';
+            } else {
+                displayHighScores(gameOverScreenHighScores);
+                gameOverScreen.style.display = 'flex';
+            }
+        });
+
+        // --- Initial Load ---
+        loadHighScores();
+        updateTopScoreDisplay();
+        displayHighScores(startScreenHighScores);
+        resizeCanvas();
+        resetGame(true);
+        renderer.render(scene, camera); // Perform one initial render
+        startScreen.style.display = 'flex'; // Show the start screen
+    </script>
+</body>
+</html>
+
+
+
+
