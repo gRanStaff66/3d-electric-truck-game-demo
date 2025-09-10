@@ -2,7 +2,7 @@
 
 Welcome to the 3D Electric Truck Challenge\! This is a fast-paced, arcade-style driving game built with Three.js and plain JavaScript. Navigate a winding off-road course, collect lightning bolts to keep your battery charged, and try to survive all 10 progressively difficult levels to get the high score\!
 
-[**Live Demo Link**](https://www.google.com/search?q=httpshttps://gRanStaff66.github.io/3d-electric-truck-game-demo/)
+[**Live Demo Link**](https://gRanStaff66.github.io/3d-electric-truck-game-demo/)
 
 *(Note: After deploying to GitHub Pages, it may take a few minutes for the link to become active.)*
 
