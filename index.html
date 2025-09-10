@@ -81,6 +81,22 @@
              width: 5rem;
              text-align: right;
         }
+        /* Battery Bar Styles */
+        .battery-container {
+            width: 100px;
+            height: 20px;
+            border: 2px solid #374151; /* gray-700 */
+            border-radius: 4px;
+            background-color: #f3f4f6; /* gray-100 */
+            padding: 2px;
+            margin-top: 4px;
+        }
+        .battery-fill {
+            height: 100%;
+            background-color: #22c55e; /* green-500 */
+            border-radius: 2px;
+            transition: width 0.2s ease-in-out;
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center p-4">
@@ -93,6 +109,15 @@
                 <div class="flex-1">
                     <p class="text-sm md:text-base text-gray-600">Level: <span id="level" class="font-bold text-lg">1</span></p>
                     <p class="text-sm md:text-base text-gray-600">Score: <span id="score" class="font-bold text-lg">0</span></p>
+                </div>
+                 <div class="flex-1 text-center">
+                    <p class="text-sm md:text-base text-gray-600">Speed: <span id="speed" class="font-bold text-lg">0</span> MPH</p>
+                    <div class="flex items-center justify-center space-x-2">
+                        <span class="text-xs text-gray-600">BATTERY</span>
+                        <div class="battery-container">
+                            <div id="batteryFill" class="battery-fill"></div>
+                        </div>
+                    </div>
                 </div>
                  <div class="flex-1 text-right">
                     <p class="text-sm md:text-base text-gray-600">High Score: <span id="highScore" class="font-bold text-lg">0</span></p>
@@ -156,6 +181,8 @@
         const scoreEl = document.getElementById('score');
         const highScoreEl = document.getElementById('highScore');
         const levelEl = document.getElementById('level');
+        const speedEl = document.getElementById('speed'); // Speedometer element
+        const batteryFillEl = document.getElementById('batteryFill'); // Battery fill element
         const startScreen = document.getElementById('startScreen');
         const gameOverScreen = document.getElementById('gameOverScreen');
         const highScoreEntryScreen = document.getElementById('highScoreEntryScreen');
@@ -198,6 +225,13 @@
         let cameraLookAtX = 0; // Used for smooth camera movement.
         let distanceTraveled = 0; // Tracks player progress through a level.
         let isLevelCompleting = false; // Prevents level complete logic from running multiple times.
+        
+        // Battery state
+        const MAX_BATTERY = 100;
+        let batteryLevel = MAX_BATTERY;
+        const BATTERY_DRAIN_NORMAL = 0.1;
+        const BATTERY_DRAIN_BOOST = 0.3;
+        const BATTERY_CHARGE_AMOUNT = 25;
 
         const HIGH_SCORES_KEY = 'truckHighScoresList3D';
 
@@ -323,10 +357,10 @@
         const pathData = [];
         
         const objectPools = {
-            collectible: [], tree: [], bush: [], rock: [], banner: [], path: [],
+            collectible: [], tree: [], bush: [], rock: [], banner: [], path: [], charger: [],
         };
         const activeObjects = {
-            collectible: [], obstacle: [], banner: [], path: [],
+            collectible: [], obstacle: [], banner: [], path: [], charger: [],
         };
 
         /**
@@ -349,6 +383,27 @@
                     obj.scale.set(0.8, 0.8, 0.8);
                     obj.castShadow = true;
                     obj.userData.type = 'collectible';
+                    break;
+                 case 'charger':
+                    const chargerGroup = new THREE.Group();
+                    const boxGeo = new THREE.BoxGeometry(1, 1.5, 1);
+                    const boxMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // White box
+                    const box = new THREE.Mesh(boxGeo, boxMat);
+                    chargerGroup.add(box);
+                    // Add a small lightning bolt symbol to the front
+                    const boltShape = new THREE.Shape();
+                    boltShape.moveTo(0.1, 0.4); boltShape.lineTo(-0.1, 0); boltShape.lineTo(0.05, 0);
+                    boltShape.lineTo(-0.15, -0.2); boltShape.lineTo(0.1, -0.1); boltShape.lineTo(-0.05, -0.1);
+                    boltShape.lineTo(0.1, 0.4);
+                    const boltGeo = new THREE.ShapeGeometry(boltShape);
+                    const boltMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const bolt = new THREE.Mesh(boltGeo, boltMat);
+                    bolt.position.z = 0.51; // On the front face of the box
+                    bolt.scale.set(0.8, 0.8, 0.8);
+                    chargerGroup.add(bolt);
+                    obj = chargerGroup;
+                    obj.userData.yOffset = 0.75;
+                    obj.userData.type = 'charger';
                     break;
                 case 'tree':
                     const treeGroup = new THREE.Group();
@@ -421,6 +476,7 @@
                 if (type === 'collectible') activeObjects.collectible.push(obj);
                 else if (type === 'path') activeObjects.path.push(obj);
                 else if (type === 'banner') activeObjects.banner.push(obj);
+                else if (type === 'charger') activeObjects.charger.push(obj);
                 else activeObjects.obstacle.push(obj);
             }
             return obj;
@@ -439,6 +495,7 @@
             if (type === 'collectible') { pool = objectPools.collectible; activeArr = activeObjects.collectible; }
             else if (type === 'path') { pool = objectPools.path; activeArr = activeObjects.path; }
             else if (type === 'banner') { pool = objectPools.banner; activeArr = activeObjects.banner; }
+            else if (type === 'charger') { pool = objectPools.charger; activeArr = activeObjects.charger; }
             else {
                  activeArr = activeObjects.obstacle;
                  if(type.includes('tree')) pool = objectPools.tree;
@@ -625,6 +682,15 @@
         }
 
         /**
+         * Spawns a charging station from the pool.
+         */
+        function spawnCharger(zPos) {
+             const charger = getObjectFromPool('charger');
+             const randomX = (Math.random() - 0.5) * 20;
+             charger.position.set(randomX, charger.userData.yOffset, zPos);
+        }
+
+        /**
          * Spawns a random obstacle (tree, bush, or rock) near the path.
          */
         function spawnObstacle(zPos) {
@@ -641,12 +707,13 @@
         
         /**
          * Iterates through all active objects, moves them, checks for collisions, and recycles them.
+         * @param {number} currentSpeed - The current speed of the game, including any boosts.
          */
-        function updateGameObjects() {
+        function updateGameObjects(currentSpeed) {
             for (const type in activeObjects) {
                 for (let i = activeObjects[type].length - 1; i >= 0; i--) {
                     const obj = activeObjects[type][i];
-                    obj.position.z += gameSpeed;
+                    obj.position.z += currentSpeed; // Use the passed-in speed
 
                     if (obj.position.z > camera.position.z + 10) {
                         returnObjectToPool(obj);
@@ -670,7 +737,14 @@
                 score++;
                 totalScore++;
                 scoreEl.textContent = totalScore;
+                batteryLevel = Math.min(MAX_BATTERY, batteryLevel + BATTERY_CHARGE_AMOUNT);
                 returnObjectToPool(obj);
+            } else if (type === 'charger') {
+                 score += 5; // Bonus points for charger
+                 totalScore += 5;
+                 scoreEl.textContent = totalScore;
+                 batteryLevel = MAX_BATTERY; // Full recharge
+                 returnObjectToPool(obj);
             } else if (type === 'obstacle') {
                 endGame();
             } else if (type === 'banner' && obj === finishLine) {
@@ -688,6 +762,7 @@
              const config = levelConfig[level - 1];
              if (Math.random() < 0.02) spawnCollectible(zPos);
              if (Math.random() < config.obsRate) spawnObstacle(zPos);
+             if (Math.random() < 0.005) spawnCharger(zPos); // Chargers are rare
         }
 
         /**
@@ -718,23 +793,37 @@
             if (gameOver || isPaused) return;
             requestAnimationFrame(animate);
 
+            // Check if the player is pressing the up arrow to boost speed. More powerful boost.
+            const isBoosting = keys.ArrowUp;
+            const currentSpeed = isBoosting ? gameSpeed * 2.0 : gameSpeed;
+            speedEl.textContent = (currentSpeed * 100).toFixed(0); // Update speedometer
+
+            // --- Battery Drain ---
+            const drain = isBoosting ? BATTERY_DRAIN_BOOST : BATTERY_DRAIN_NORMAL;
+            batteryLevel -= drain;
+            batteryFillEl.style.width = `${(batteryLevel / MAX_BATTERY) * 100}%`;
+
+            if (batteryLevel <= 0) {
+                endGame();
+                return;
+            }
+
             // --- Truck Movement and Physics ---
             truck.position.x += truck.userData.dx;
             const targetRotationZ = -truck.userData.dx * 0.8;
             truck.rotation.z += (targetRotationZ - truck.rotation.z) * 0.1; // Smooth tilt
 
             // --- Boundary checks ---
-            // Adjusted for narrower ground
             if (truck.position.x < -16) truck.position.x = -16;
             if (truck.position.x > 16) truck.position.x = 16;
             truck.userData.boundingBox.setFromObject(truck);
 
             // --- World Movement ---
             ground.position.z = truck.position.z;
-            distanceTraveled += gameSpeed;
+            distanceTraveled += currentSpeed; // Use current speed for distance tracking
             
             // --- Core Logic Updates ---
-            updateGameObjects();
+            updateGameObjects(currentSpeed); // Pass current speed to the update function
             spawnNewObjects();
 
             // --- Finish Line Logic ---
@@ -856,8 +945,11 @@
             distanceTraveled = 0;
             isLevelCompleting = false;
             isPaused = false; // Ensure game is not paused on reset
+            batteryLevel = MAX_BATTERY; // Reset battery
             scoreEl.textContent = totalScore;
             levelEl.textContent = level;
+            speedEl.textContent = '0'; // Reset speedometer display
+            batteryFillEl.style.width = '100%'; // Reset battery display
             cameraLookAtX = 0;
             
             // Return all active objects to their pools
@@ -1000,7 +1092,4 @@
     </script>
 </body>
 </html>
-
-
-
 
