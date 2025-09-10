@@ -4,9 +4,7 @@ Welcome to the 3D Electric Truck Challenge\! This is a fast-paced, arcade-style 
 
 [**Live Demo Link**](https://gRanStaff66.github.io/3d-electric-truck-game-demo/)
 
-*(Note: After deploying to GitHub Pages, it may take a few minutes for the link to become active.)*
 
-*(Suggestion: Add a screenshot or a GIF of your game in action here\!)*
 
 ## **Features**
 
