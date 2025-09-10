@@ -229,8 +229,8 @@
         // Battery state
         const MAX_BATTERY = 100;
         let batteryLevel = MAX_BATTERY;
-        const BATTERY_DRAIN_NORMAL = 0.1;
-        const BATTERY_DRAIN_BOOST = 0.3;
+        const BATTERY_DRAIN_NORMAL = 0.12; // Was 0.1
+        const BATTERY_DRAIN_BOOST = 0.35; // Was 0.3
         const BATTERY_CHARGE_AMOUNT = 25;
 
         const HIGH_SCORES_KEY = 'truckHighScoresList3D';
@@ -386,23 +386,42 @@
                     break;
                  case 'charger':
                     const chargerGroup = new THREE.Group();
-                    const boxGeo = new THREE.BoxGeometry(1, 1.5, 1);
-                    const boxMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); // White box
-                    const box = new THREE.Mesh(boxGeo, boxMat);
-                    chargerGroup.add(box);
-                    // Add a small lightning bolt symbol to the front
+                    const baseMat = new THREE.MeshLambertMaterial({ color: 0x4b5563 }); // gray-600
+                    const bodyMat = new THREE.MeshLambertMaterial({ color: 0xd1d5db }); // gray-300
+                    const lightMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1 }); // green-500
+
+                    // Base
+                    const baseGeo = new THREE.BoxGeometry(1.2, 0.2, 1.2);
+                    const base = new THREE.Mesh(baseGeo, baseMat);
+                    base.position.y = 0.1;
+                    chargerGroup.add(base);
+
+                    // Pedestal Body
+                    const bodyGeo = new THREE.BoxGeometry(1, 2, 1);
+                    const body = new THREE.Mesh(bodyGeo, bodyMat);
+                    body.position.y = 1.2;
+                    chargerGroup.add(body);
+                    
+                    // Glowing Light on top
+                    const lightGeo = new THREE.SphereGeometry(0.2, 16, 8);
+                    const light = new THREE.Mesh(lightGeo, lightMat);
+                    light.position.y = 2.3;
+                    chargerGroup.add(light);
+
+                    // Lightning bolt symbol
                     const boltShape = new THREE.Shape();
                     boltShape.moveTo(0.1, 0.4); boltShape.lineTo(-0.1, 0); boltShape.lineTo(0.05, 0);
                     boltShape.lineTo(-0.15, -0.2); boltShape.lineTo(0.1, -0.1); boltShape.lineTo(-0.05, -0.1);
                     boltShape.lineTo(0.1, 0.4);
                     const boltGeo = new THREE.ShapeGeometry(boltShape);
-                    const boltMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const boltMat = new THREE.MeshBasicMaterial({ color: 0x166534 }); // dark green
                     const bolt = new THREE.Mesh(boltGeo, boltMat);
-                    bolt.position.z = 0.51; // On the front face of the box
-                    bolt.scale.set(0.8, 0.8, 0.8);
+                    bolt.position.set(0, 1.2, 0.51); // Centered on the front face of the body
+                    bolt.scale.set(1.2, 1.2, 1.2);
                     chargerGroup.add(bolt);
+                    
                     obj = chargerGroup;
-                    obj.userData.yOffset = 0.75;
+                    obj.userData.yOffset = 0; // The group's base is at y=0
                     obj.userData.type = 'charger';
                     break;
                 case 'tree':
@@ -1092,4 +1111,5 @@
     </script>
 </body>
 </html>
+
 
